@@ -1,59 +1,68 @@
-document.getElementById("experiment-form").addEventListener("submit", function(event) {
-    event.preventDefault();  // Prevent form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('search-form');
+    const searchType = document.getElementById('search-type');
+    const weightInput = document.getElementById('weight-input');
 
-    const start = parseFloat(document.getElementById("start").value);
-    const end = parseFloat(document.getElementById("end").value);
-    const stepNum = parseInt(document.getElementById("step_num").value);
-
-    // Validation checks
-    if (isNaN(start)) {
-        alert("Please enter a valid number for Shift Start.");
-        return;
+    // Function to update form visibility based on search type
+    function updateFormVisibility() {
+        const type = searchType.value;
+        // Only show weight input for hybrid search
+        weightInput.style.display = type === 'hybrid' ? 'block' : 'none';
     }
 
-    if (isNaN(end)) {
-        alert("Please enter a valid number for Shift End.");
-        return;
-    }
+    // Initial visibility update and add listener for changes
+    updateFormVisibility();
+    searchType.addEventListener('change', updateFormVisibility);
 
-    if (isNaN(stepNum) || stepNum <= 0) {
-        alert("Please enter a positive integer for Number of Steps.");
-        return;
-    }
-
-    if (start >= end) {
-        alert("Shift Start should be smaller than Shift End.");
-        return;
-    }
-
-    // If all validations pass, submit the form
-    fetch("/run_experiment", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ start: start, end: end, step_num: stepNum })
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Show and set images if they exist
-        const resultsDiv = document.getElementById("results");
-        resultsDiv.style.display = "block";
-
-        const datasetImg = document.getElementById("dataset-img");
-        if (data.dataset_img) {
-            datasetImg.src = `/${data.dataset_img}`;
-            datasetImg.style.display = "block";
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(this);
+        const resultsDiv = document.getElementById('results');
+        
+        // Validate inputs
+        const weight = parseFloat(formData.get('weight'));
+        const kComponents = parseInt(formData.get('k_components'));
+        
+        if (weight < 0 || weight > 1) {
+            alert('Weight must be between 0 and 1');
+            return;
         }
-
-        const parametersImg = document.getElementById("parameters-img");
-        if (data.parameters_img) {
-            parametersImg.src = `/${data.parameters_img}`;
-            parametersImg.style.display = "block";
+        
+        if (kComponents < 0) {
+            alert('Number of PCA components must be non-negative');
+            return;
         }
-    })
-    .catch(error => {
-        console.error("Error running experiment:", error);
-        alert("An error occurred while running the experiment.");
+        
+        // Show loading state
+        resultsDiv.innerHTML = 'Searching...';
+        
+        fetch('/search', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            resultsDiv.innerHTML = '';
+            
+            data.results.forEach(result => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result-item';
+                
+                const img = document.createElement('img');
+                img.src = result.image_path;
+                
+                const score = document.createElement('p');
+                score.textContent = `Similarity: ${result.similarity.toFixed(4)}`;
+                
+                resultDiv.appendChild(img);
+                resultDiv.appendChild(score);
+                resultsDiv.appendChild(resultDiv);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            resultsDiv.innerHTML = 'An error occurred while searching.';
+        });
     });
 });

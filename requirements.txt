@@ -1,5 +1,8 @@
 flask
+torch
+torchvision
+open-clip-torch
 numpy
+pandas
+pillow
 scikit-learn
-scipy
-matplotlib
